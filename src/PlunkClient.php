@@ -6,7 +6,6 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use NextMigrant\Plunk\Exceptions\PlunkException;
-use NextMigrant\Plunk\Exceptions\RateLimitException;
 
 class PlunkClient
 {
@@ -97,8 +96,21 @@ class PlunkClient
             ->retry(
                 times: $this->retryTimes,
                 sleepMilliseconds: $this->retrySleep,
-                when: fn (\Throwable $exception) => $exception instanceof RateLimitException
-                    || ($exception instanceof PlunkException && $exception->getCode() >= 500),
+                when: function (\Throwable $exception): bool {
+                    // Retry on connection failures (network errors).
+                    if ($exception instanceof \Illuminate\Http\Client\ConnectionException) {
+                        return true;
+                    }
+
+                    // Retry on 429 (rate limit) or 5xx (server error) responses.
+                    if ($exception instanceof \Illuminate\Http\Client\RequestException) {
+                        $status = $exception->response->status();
+
+                        return $status === 429 || $status >= 500;
+                    }
+
+                    return false;
+                },
                 throw: false,
             )
             ->acceptJson()
