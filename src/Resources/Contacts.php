@@ -18,7 +18,7 @@ class Contacts
      * @param  string|null  $search  Filter by email substring.
      * @param  int  $limit  Items per page (max 100).
      * @param  string|null  $cursor  Cursor for the next page.
-     * @return array<string, mixed>  Contains 'data' (Contact[]) and pagination info.
+     * @return array<string, mixed> Contains 'data' (Contact[]) and pagination info.
      */
     public function list(?string $search = null, int $limit = 20, ?string $cursor = null): array
     {
@@ -42,8 +42,6 @@ class Contacts
 
     /**
      * Get a single contact by ID.
-     *
-     * @return Contact
      */
     public function get(string $id): Contact
     {
@@ -60,7 +58,7 @@ class Contacts
      * @param  string  $email  The contact's email address.
      * @param  array<string, mixed>  $data  Custom data fields to associate.
      * @param  bool|null  $subscribed  Subscription state (defaults to false for new contacts).
-     * @return array<string, mixed>  Contains the contact data and _meta with isNew/isUpdate flags.
+     * @return array<string, mixed> Contains the contact data and _meta with isNew/isUpdate flags.
      */
     public function create(string $email, array $data = [], ?bool $subscribed = null): array
     {
@@ -80,7 +78,6 @@ class Contacts
      * @param  string|null  $email  New email address.
      * @param  bool|null  $subscribed  Subscription state.
      * @param  array<string, mixed>|null  $data  Custom data fields (set a key to null to remove it).
-     * @return Contact
      */
     public function update(string $id, ?string $email = null, ?bool $subscribed = null, ?array $data = null): Contact
     {
@@ -112,7 +109,7 @@ class Contacts
      * This is an async operation — use bulkStatus() to poll for completion.
      *
      * @param  string  $csvPath  Absolute path to the CSV file.
-     * @return array<string, mixed>  Contains the jobId for status polling.
+     * @return array<string, mixed> Contains the jobId for status polling.
      *
      * @throws InvalidArgumentException
      */
@@ -127,7 +124,7 @@ class Contacts
 
         if ($fileSize > $maxSize) {
             throw new InvalidArgumentException(
-                "CSV file exceeds the 5MB limit: " . round($fileSize / 1024 / 1024, 2) . "MB"
+                'CSV file exceeds the 5MB limit: '.round($fileSize / 1024 / 1024, 2).'MB'
             );
         }
 
@@ -140,7 +137,7 @@ class Contacts
      * Subscribe contacts in bulk (up to 1,000).
      *
      * @param  array<string>  $ids  Contact IDs to subscribe.
-     * @return array<string, mixed>  Contains the jobId for status polling.
+     * @return array<string, mixed> Contains the jobId for status polling.
      */
     public function bulkSubscribe(array $ids): array
     {
@@ -153,7 +150,7 @@ class Contacts
      * Unsubscribe contacts in bulk (up to 1,000).
      *
      * @param  array<string>  $ids  Contact IDs to unsubscribe.
-     * @return array<string, mixed>  Contains the jobId for status polling.
+     * @return array<string, mixed> Contains the jobId for status polling.
      */
     public function bulkUnsubscribe(array $ids): array
     {
@@ -166,7 +163,7 @@ class Contacts
      * Delete contacts in bulk (up to 1,000).
      *
      * @param  array<string>  $ids  Contact IDs to delete.
-     * @return array<string, mixed>  Contains the jobId for status polling.
+     * @return array<string, mixed> Contains the jobId for status polling.
      */
     public function bulkDelete(array $ids): array
     {
@@ -179,7 +176,7 @@ class Contacts
      * Check the status of a bulk operation.
      *
      * @param  string  $jobId  The job ID returned from a bulk operation.
-     * @return array<string, mixed>  Contains the job status and results.
+     * @return array<string, mixed> Contains the job status and results.
      */
     public function bulkStatus(string $jobId): array
     {

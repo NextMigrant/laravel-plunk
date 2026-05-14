@@ -2,12 +2,11 @@
 
 namespace NextMigrant\Plunk\Tests;
 
-use Orchestra\Testbench\TestCase as Orchestra;
 use NextMigrant\Plunk\PlunkServiceProvider;
+use Orchestra\Testbench\TestCase as Orchestra;
 
 class TestCase extends Orchestra
 {
-
     protected function getPackageProviders($app)
     {
         return [

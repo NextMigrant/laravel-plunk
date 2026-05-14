@@ -75,7 +75,7 @@ class PlunkManager
      *
      * Requires a public key (pk_*) — the /v1/track endpoint does not accept secret keys.
      *
-     * @throws \NextMigrant\Plunk\Exceptions\AuthenticationException
+     * @throws AuthenticationException
      */
     public function events(): Events
     {

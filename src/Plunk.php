@@ -15,7 +15,7 @@ use NextMigrant\Plunk\Resources\Transactional;
  * @method static EmailVerification verifyEmail(string $email)
  * @method static \NextMigrant\Plunk\PlunkClient getClient()
  *
- * @see \NextMigrant\Plunk\PlunkManager
+ * @see PlunkManager
  */
 class Plunk extends Facade
 {
