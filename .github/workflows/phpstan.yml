@@ -5,11 +5,17 @@ on:
     paths:
       - '**.php'
       - 'phpstan.neon.dist'
-      - '.github/workflows/phpstan.yml'
+  pull_request:
+    paths:
+      - '**.php'
+      - 'phpstan.neon.dist'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   phpstan:
-    name: phpstan
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -21,7 +27,7 @@ jobs:
           php-version: '8.5'
           coverage: none
 
-      - name: Install composer dependencies
+      - name: Install dependencies
         uses: ramsey/composer-install@v4
 
       - name: Run PHPStan
