@@ -45,6 +45,19 @@ class PlunkClient
     }
 
     /**
+     * Send a PUT request to the Plunk API.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     *
+     * @throws PlunkException
+     */
+    public function put(string $endpoint, array $data = []): array
+    {
+        return $this->request('put', $endpoint, data: $data);
+    }
+
+    /**
      * Send a PATCH request to the Plunk API.
      *
      * @param  array<string, mixed>  $data
@@ -60,13 +73,14 @@ class PlunkClient
     /**
      * Send a DELETE request to the Plunk API.
      *
+     * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      *
      * @throws PlunkException
      */
-    public function delete(string $endpoint): array
+    public function delete(string $endpoint, array $data = []): array
     {
-        return $this->request('delete', $endpoint);
+        return $this->request('delete', $endpoint, data: $data);
     }
 
     /**
@@ -83,7 +97,7 @@ class PlunkClient
             ->retry(
                 times: $this->retryTimes,
                 sleepMilliseconds: $this->retrySleep,
-                when: fn (?\Exception $exception, PendingRequest $request) => $exception instanceof RateLimitException
+                when: fn (\Throwable $exception) => $exception instanceof RateLimitException
                     || ($exception instanceof PlunkException && $exception->getCode() >= 500),
                 throw: false,
             )
@@ -108,8 +122,10 @@ class PlunkClient
         $response = match ($method) {
             'get' => $request->get($endpoint, $query),
             'post' => $request->post($endpoint, $data),
+            'put' => $request->put($endpoint, $data),
             'patch' => $request->patch($endpoint, $data),
-            'delete' => $request->delete($endpoint),
+            'delete' => $request->delete($endpoint, $data),
+            default => throw new \InvalidArgumentException("Unsupported HTTP method: {$method}"),
         };
 
         if ($response->failed()) {

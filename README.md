@@ -15,17 +15,20 @@ A clean, expressive Laravel package for the [Plunk](https://useplunk.com) email 
 
 ## Features
 
-- 📧 **Transactional Emails** — Send emails with templates, attachments, and custom headers
-- 👥 **Contact Management** — Full CRUD with bulk subscribe/unsubscribe/delete and CSV import
+- 📧 **Transactional Emails** — Send with templates, attachments, custom headers, and reply-to
+- 👥 **Contact Management** — Full CRUD with bulk ops, CSV import, and cursor pagination
+- 📝 **Template Management** — Full CRUD with duplicate and usage tracking
+- 📣 **Campaign Management** — Create, send, schedule, cancel, and track stats
+- 🎯 **Segment Management** — Dynamic/static segments with member management
 - 📡 **Event Tracking** — Track events with automatic contact upsert and workflow triggers
 - ✅ **Email Verification** — Validate format, MX records, disposable domains, and typos
 - 🔑 **Dual Key Support** — Secret key for admin APIs, public key for event tracking
-- 🛡️ **Typed Exceptions** — `AuthenticationException`, `ValidationException`, `RateLimitException`
+- 🛡️ **Typed Exceptions** — `AuthenticationException`, `ValidationException`, `RateLimitException`, `BillingException`, `ConflictException`
 - ⚡ **Built on Laravel HTTP Client** — Retries, timeouts, and `Http::fake()` for testing
 
 ## Requirements
 
-- PHP 8.4+
+- PHP 8.3+
 - Laravel 11, 12, or 13
 
 ## Installation
@@ -69,35 +72,40 @@ Plunk::events()->track(
 
 // Verify an email
 $result = Plunk::verifyEmail('user@example.com');
-// $result->valid, $result->disposable, $result->typo, etc.
+// $result->valid, $result->isDisposable, $result->hasMxRecords, etc.
 ```
 
 ## Usage
 
 ### Transactional Emails
 
-Send emails with the full range of Plunk options:
+Send with inline content or a template. Requires either `template`, or both `subject` and `body`:
 
 ```php
+// Inline content
 Plunk::transactional()->send(
-    to: 'user@example.com',           // string or array of emails
+    to: 'user@example.com',                        // string, {name, email}, or array
     subject: 'Your Invoice',
-    body: '<h1>Invoice #1234</h1>',    // HTML body (or use template)
-    from: 'billing@acme.com',          // Sender email (verified domain)
-    name: 'Acme Inc',                  // Sender display name
-    reply: 'billing@acme.com',          // Reply-to address
-    cc: ['manager@acme.com'],          // CC recipients
-    bcc: ['archive@acme.com'],         // BCC recipients
-    headers: ['X-Priority' => '1'],    // Custom headers
-    template: 'tpl_invoice',           // Use a Plunk template instead of body
-    subscribed: true,                  // Add recipient to contacts
-    data: ['invoice_id' => '1234'],    // Custom contact data
+    body: '<h1>Invoice #1234</h1>',
+    from: ['name' => 'Acme', 'email' => 'billing@acme.com'],  // verified domain
+    reply: 'support@acme.com',
+    subscribed: true,
+    data: ['invoice_id' => '1234'],                // contact data + template vars
+    headers: ['X-Priority' => '1'],
     attachments: [
         [
             'filename' => 'invoice.pdf',
             'content' => base64_encode($pdfContent),
+            'contentType' => 'application/pdf',
         ],
     ],
+);
+
+// Using a template (subject/body come from the template)
+Plunk::transactional()->send(
+    to: 'user@example.com',
+    template: 'tpl_welcome',
+    data: ['firstName' => 'John', 'plan' => 'pro'],
 );
 ```
 
@@ -110,6 +118,7 @@ Plunk::events()->track(
     email: 'user@example.com',
     event: 'plan_upgraded',
     data: ['plan' => 'enterprise', 'seats' => 50],
+    subscribed: false,  // Subscription state for auto-created contacts
 );
 ```
 
@@ -120,7 +129,7 @@ Plunk::events()->track(
 #### Basic CRUD
 
 ```php
-// List contacts (paginated)
+// List contacts (cursor-based pagination)
 $result = Plunk::contacts()->list(
     search: 'john',    // Filter by email substring
     limit: 50,         // Items per page (max 100)
@@ -131,25 +140,29 @@ foreach ($result['data'] as $contact) {
     echo $contact->email;       // Contact DTO
     echo $contact->subscribed;
 }
+// $result['cursor'], $result['hasMore'], $result['total']
 
 // Get a single contact
 $contact = Plunk::contacts()->get('contact_id');
 
 // Create or upsert a contact
-$result = Plunk::contacts()->create('new@example.com', [
-    'source' => 'api',
-    'plan' => 'free',
-]);
+$result = Plunk::contacts()->create('new@example.com',
+    subscribed: true,
+    data: ['source' => 'api', 'plan' => 'free'],
+);
+// $result['_meta']['isNew'], $result['_meta']['isUpdate']
 
-// Update a contact
-$contact = Plunk::contacts()->update('contact_id',
-    email: 'updated@example.com',
+// Update a contact (PATCH)
+$result = Plunk::contacts()->update('contact_id',
     subscribed: false,
     data: ['plan' => 'pro'],
 );
 
 // Delete a contact
 Plunk::contacts()->delete('contact_id');
+
+// Bulk email-existence check (max 500 emails)
+$result = Plunk::contacts()->lookup(['a@example.com', 'b@example.com']);
 ```
 
 #### Bulk Operations
@@ -157,17 +170,126 @@ Plunk::contacts()->delete('contact_id');
 All bulk operations are async and return a `jobId` for status polling:
 
 ```php
-// Bulk subscribe/unsubscribe/delete (up to 1,000 IDs)
+// Subscribe/unsubscribe/delete (up to 1,000 IDs)
 $result = Plunk::contacts()->bulkSubscribe(['id_1', 'id_2', 'id_3']);
 $result = Plunk::contacts()->bulkUnsubscribe(['id_1', 'id_2']);
 $result = Plunk::contacts()->bulkDelete(['id_1']);
 
 // Poll job status
 $status = Plunk::contacts()->bulkStatus($result['jobId']);
-// $status['status'] => 'completed'
 
-// Import from CSV (max 5MB)
+// Import from CSV (max 5MB, queued)
 $result = Plunk::contacts()->import('/path/to/contacts.csv');
+$status = Plunk::contacts()->importStatus($result['jobId']);
+```
+
+### Templates
+
+```php
+// List templates (with pagination and filtering)
+$result = Plunk::templates()->list(
+    search: 'welcome',
+    type: 'TRANSACTIONAL',  // or 'MARKETING'
+    limit: 50,
+);
+
+// Get a single template
+$template = Plunk::templates()->get('template_id');
+
+// Create a template
+$template = Plunk::templates()->create(
+    name: 'Welcome Email',
+    subject: 'Welcome to {{company}}!',
+    body: '<h1>Hello {{firstName}}</h1>',
+    type: 'TRANSACTIONAL',  // or 'MARKETING'
+);
+
+// Update a template (PATCH)
+$template = Plunk::templates()->update('template_id',
+    subject: 'Updated Subject',
+);
+
+// Duplicate a template
+$copy = Plunk::templates()->duplicate('template_id');
+
+// Check what uses a template
+$usage = Plunk::templates()->usage('template_id');
+
+// Delete a template
+Plunk::templates()->delete('template_id');
+```
+
+### Campaigns
+
+```php
+// List all campaigns
+$campaigns = Plunk::campaigns()->list();
+
+// Create a campaign (starts in DRAFT)
+$result = Plunk::campaigns()->create(
+    name: 'Product Launch',
+    subject: 'Exciting news!',
+    body: '<h1>We launched!</h1>',
+    from: 'hello@acme.com',
+    audienceType: 'ALL',          // 'ALL', 'SEGMENT', or 'FILTERED'
+    segmentId: 'seg_123',         // required if SEGMENT
+    audienceFilter: [...],        // required if FILTERED
+);
+
+// Send immediately
+Plunk::campaigns()->send('campaign_id');
+
+// Schedule for later
+Plunk::campaigns()->send('campaign_id', scheduledFor: '2026-06-01T10:00:00Z');
+
+// Cancel a scheduled/sending campaign
+Plunk::campaigns()->cancel('campaign_id');
+
+// Send a test email
+Plunk::campaigns()->test('campaign_id', 'tester@example.com');
+
+// Get campaign stats
+$stats = Plunk::campaigns()->stats('campaign_id');
+// $stats['sent'], $stats['opened'], $stats['clicked'], $stats['bounced']
+
+// Duplicate / Update / Delete
+$copy = Plunk::campaigns()->duplicate('campaign_id');
+Plunk::campaigns()->update('campaign_id', [...]);
+Plunk::campaigns()->delete('campaign_id');
+```
+
+### Segments
+
+```php
+// List all segments
+$segments = Plunk::segments()->list();
+
+// Create a segment
+$result = Plunk::segments()->create(
+    name: 'Pro Users',
+    filters: ['data.plan' => 'pro'],
+    trackMembership: true,
+);
+
+// Get segment members (page-based pagination)
+$result = Plunk::segments()->contacts('segment_id', page: 1, pageSize: 100);
+
+// Add/remove members (static segments)
+Plunk::segments()->addMembers('segment_id',
+    emails: ['a@example.com', 'b@example.com'],
+    createMissing: true,
+);
+Plunk::segments()->removeMembers('segment_id', ['a@example.com']);
+
+// Recompute membership (fires entry/exit events)
+Plunk::segments()->compute('segment_id');
+
+// Cheap count refresh (no events)
+Plunk::segments()->refresh('segment_id');
+
+// Update / Delete
+Plunk::segments()->update('segment_id', ['name' => 'Updated Name']);
+Plunk::segments()->delete('segment_id');
 ```
 
 ### Email Verification
@@ -180,6 +302,7 @@ $verification->email;            // string — the email checked
 $verification->isDisposable;     // bool — is a disposable domain
 $verification->isAlias;          // bool — is an alias address
 $verification->isTypo;           // bool — likely contains a typo
+$verification->suggestedEmail;   // string|null — correction if isTypo is true
 $verification->isPlusAddressed;  // bool — uses + addressing
 $verification->isPersonalEmail;  // bool — personal vs business
 $verification->domainExists;     // bool — domain resolves
@@ -207,25 +330,35 @@ return [
 
 ## Error Handling
 
-The package throws typed exceptions mapped from HTTP status codes:
+The package throws typed exceptions mapped from HTTP status codes. All exceptions expose `errorCode`, `requestId`, and `suggestion` from the Plunk error response:
 
 ```php
-use NextMigrant\Plunk\Exceptions\AuthenticationException;
-use NextMigrant\Plunk\Exceptions\ValidationException;
-use NextMigrant\Plunk\Exceptions\RateLimitException;
-use NextMigrant\Plunk\Exceptions\PlunkException;
+use NextMigrant\Plunk\Exceptions\AuthenticationException; // 401, 403
+use NextMigrant\Plunk\Exceptions\BillingException;        // 402
+use NextMigrant\Plunk\Exceptions\ConflictException;       // 409
+use NextMigrant\Plunk\Exceptions\ValidationException;     // 422
+use NextMigrant\Plunk\Exceptions\RateLimitException;      // 429
+use NextMigrant\Plunk\Exceptions\PlunkException;          // All others
 
 try {
     Plunk::transactional()->send(to: $email, subject: 'Hi', body: '<p>Hello</p>');
 } catch (AuthenticationException $e) {
     // 401/403 — Invalid or missing API key
+} catch (BillingException $e) {
+    // 402 — Billing limit exceeded or upgrade required
+} catch (ConflictException $e) {
+    // 409 — Resource conflict (e.g., duplicate email)
 } catch (ValidationException $e) {
     // 422 — Invalid request payload
+    $e->response->json()['error']['errors']; // Field-level validation errors
 } catch (RateLimitException $e) {
     // 429 — Exceeded 1,000 requests/minute
 } catch (PlunkException $e) {
     // Any other API error
-    $e->response;  // Access the underlying HTTP response
+    $e->errorCode;   // e.g., 'INTERNAL_SERVER_ERROR'
+    $e->requestId;   // For debugging with Plunk support
+    $e->suggestion;  // Helpful fix guidance
+    $e->response;    // Underlying HTTP response
 }
 ```
 

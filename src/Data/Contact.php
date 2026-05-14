@@ -18,13 +18,13 @@ class Contact
      *
      * @param  array<string, mixed>  $attributes
      */
-    public static function fromArray(array $attributes): static
+    public static function fromArray(array $attributes): self
     {
-        return new static(
+        return new self(
             id: $attributes['id'],
             email: $attributes['email'],
             subscribed: $attributes['subscribed'] ?? true,
-            data: $attributes['data'] ?? [],
+            data: self::parseData($attributes['data'] ?? []),
             createdAt: $attributes['createdAt'] ?? null,
             updatedAt: $attributes['updatedAt'] ?? null,
         );
@@ -45,5 +45,19 @@ class Contact
             'createdAt' => $this->createdAt,
             'updatedAt' => $this->updatedAt,
         ];
+    }
+
+    /**
+     * Parse the data field which may be a JSON string or array.
+     *
+     * @return array<string, mixed>
+     */
+    private static function parseData(mixed $data): array
+    {
+        if (is_string($data)) {
+            return json_decode($data, true) ?? [];
+        }
+
+        return is_array($data) ? $data : [];
     }
 }

@@ -4,8 +4,11 @@ namespace NextMigrant\Plunk;
 
 use NextMigrant\Plunk\Data\EmailVerification;
 use NextMigrant\Plunk\Exceptions\AuthenticationException;
+use NextMigrant\Plunk\Resources\Campaigns;
 use NextMigrant\Plunk\Resources\Contacts;
 use NextMigrant\Plunk\Resources\Events;
+use NextMigrant\Plunk\Resources\Segments;
+use NextMigrant\Plunk\Resources\Templates;
 use NextMigrant\Plunk\Resources\Transactional;
 
 class PlunkManager
@@ -19,6 +22,12 @@ class PlunkManager
     protected ?Transactional $transactional = null;
 
     protected ?Events $events = null;
+
+    protected ?Templates $templates = null;
+
+    protected ?Campaigns $campaigns = null;
+
+    protected ?Segments $segments = null;
 
     /**
      * @param  array<string, mixed>  $config
@@ -68,6 +77,30 @@ class PlunkManager
     public function transactional(): Transactional
     {
         return $this->transactional ??= new Transactional($this->client);
+    }
+
+    /**
+     * Access the Templates resource for managing email templates.
+     */
+    public function templates(): Templates
+    {
+        return $this->templates ??= new Templates($this->client);
+    }
+
+    /**
+     * Access the Campaigns resource for managing email campaigns.
+     */
+    public function campaigns(): Campaigns
+    {
+        return $this->campaigns ??= new Campaigns($this->client);
+    }
+
+    /**
+     * Access the Segments resource for managing audience segments.
+     */
+    public function segments(): Segments
+    {
+        return $this->segments ??= new Segments($this->client);
     }
 
     /**

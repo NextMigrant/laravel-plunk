@@ -16,6 +16,7 @@ class EmailVerification
         public readonly bool $hasWebsite,
         public readonly bool $hasMxRecords,
         public readonly array $reasons = [],
+        public readonly ?string $suggestedEmail = null,
     ) {}
 
     /**
@@ -23,11 +24,11 @@ class EmailVerification
      *
      * @param  array<string, mixed>  $attributes
      */
-    public static function fromArray(array $attributes): static
+    public static function fromArray(array $attributes): self
     {
         $data = $attributes['data'] ?? $attributes;
 
-        return new static(
+        return new self(
             email: $data['email'] ?? '',
             valid: $data['valid'] ?? false,
             isDisposable: $data['isDisposable'] ?? false,
@@ -39,6 +40,7 @@ class EmailVerification
             hasWebsite: $data['hasWebsite'] ?? false,
             hasMxRecords: $data['hasMxRecords'] ?? false,
             reasons: $data['reasons'] ?? [],
+            suggestedEmail: $data['suggestedEmail'] ?? null,
         );
     }
 
@@ -61,6 +63,7 @@ class EmailVerification
             'hasWebsite' => $this->hasWebsite,
             'hasMxRecords' => $this->hasMxRecords,
             'reasons' => $this->reasons,
+            'suggestedEmail' => $this->suggestedEmail,
         ];
     }
 }

@@ -41,6 +41,22 @@ it('tracks an event with custom data', function () {
     });
 });
 
+it('tracks an event with subscribed state', function () {
+    Http::fake([
+        '*/v1/track' => Http::response(['success' => true]),
+    ]);
+
+    Plunk::events()->track(
+        email: 'user@example.com',
+        event: 'signed_up',
+        subscribed: false,
+    );
+
+    Http::assertSent(function ($request) {
+        return $request['subscribed'] === false;
+    });
+});
+
 it('uses the public key for event tracking', function () {
     Http::fake([
         '*/v1/track' => Http::response(['success' => true]),

@@ -13,14 +13,14 @@ class Contacts
     ) {}
 
     /**
-     * List contacts with optional search and pagination.
+     * List contacts with cursor-based pagination.
      *
      * @param  string|null  $search  Filter by email substring.
-     * @param  int  $limit  Items per page (max 100).
-     * @param  string|null  $cursor  Cursor for the next page.
-     * @return array<string, mixed> Contains 'data' (Contact[]) and pagination info.
+     * @param  int|null  $limit  Items per page (default 20, max 100).
+     * @param  string|null  $cursor  Cursor from previous response.
+     * @return array<string, mixed>  Returns { data: Contact[], cursor, hasMore, total }.
      */
-    public function list(?string $search = null, int $limit = 20, ?string $cursor = null): array
+    public function list(?string $search = null, ?int $limit = null, ?string $cursor = null): array
     {
         $query = array_filter([
             'search' => $search,
@@ -30,6 +30,7 @@ class Contacts
 
         $response = $this->client->get('/contacts', $query);
 
+        // Map data items to Contact DTOs if present.
         if (isset($response['data']) && is_array($response['data'])) {
             $response['data'] = array_map(
                 fn (array $contact) => Contact::fromArray($contact),
@@ -42,6 +43,8 @@ class Contacts
 
     /**
      * Get a single contact by ID.
+     *
+     * @return Contact
      */
     public function get(string $id): Contact
     {
@@ -53,33 +56,38 @@ class Contacts
     /**
      * Create or upsert a contact by email.
      *
-     * If the email already exists, the contact will be updated.
+     * Returns `_meta.isNew` and `_meta.isUpdate` in the response.
      *
      * @param  string  $email  The contact's email address.
-     * @param  array<string, mixed>  $data  Custom data fields to associate.
-     * @param  bool|null  $subscribed  Subscription state (defaults to false for new contacts).
-     * @return array<string, mixed> Contains the contact data and _meta with isNew/isUpdate flags.
+     * @param  bool|null  $subscribed  Whether the contact is subscribed (defaults to true).
+     * @param  array<string, string|array<string>>|null  $data  Custom data fields.
+     * @return array<string, mixed>
      */
-    public function create(string $email, array $data = [], ?bool $subscribed = null): array
+    public function create(string $email, ?bool $subscribed = null, ?array $data = null): array
     {
-        $payload = array_filter([
-            'email' => $email,
-            'data' => $data ?: null,
-            'subscribed' => $subscribed,
-        ], fn ($value) => ! is_null($value));
+        $payload = ['email' => $email];
+
+        if ($subscribed !== null) {
+            $payload['subscribed'] = $subscribed;
+        }
+
+        if ($data !== null) {
+            $payload['data'] = $data;
+        }
 
         return $this->client->post('/contacts', $payload);
     }
 
     /**
-     * Update a contact by ID.
+     * Update a contact's email, subscription state, or data fields.
      *
      * @param  string  $id  The contact ID.
      * @param  string|null  $email  New email address.
      * @param  bool|null  $subscribed  Subscription state.
-     * @param  array<string, mixed>|null  $data  Custom data fields (set a key to null to remove it).
+     * @param  array<string, string|array<string>|null>|null  $data  Custom data fields (set a key to null to remove it).
+     * @return array<string, mixed>
      */
-    public function update(string $id, ?string $email = null, ?bool $subscribed = null, ?array $data = null): Contact
+    public function update(string $id, ?string $email = null, ?bool $subscribed = null, ?array $data = null): array
     {
         $payload = array_filter([
             'email' => $email,
@@ -87,9 +95,7 @@ class Contacts
             'data' => $data,
         ], fn ($value) => ! is_null($value));
 
-        $response = $this->client->patch("/contacts/{$id}", $payload);
-
-        return Contact::fromArray($response);
+        return $this->client->patch("/contacts/{$id}", $payload);
     }
 
     /**
@@ -103,13 +109,26 @@ class Contacts
     }
 
     /**
+     * Bulk email-existence check (max 500 emails per call).
+     *
+     * @param  array<string>  $emails
+     * @return array<string, mixed>
+     */
+    public function lookup(array $emails): array
+    {
+        return $this->client->post('/contacts/lookup', [
+            'emails' => $emails,
+        ]);
+    }
+
+    /**
      * Import contacts from a CSV file.
      *
      * The CSV should contain an "email" column. Maximum file size is 5MB.
-     * This is an async operation — use bulkStatus() to poll for completion.
+     * Returns a jobId for status polling.
      *
      * @param  string  $csvPath  Absolute path to the CSV file.
-     * @return array<string, mixed> Contains the jobId for status polling.
+     * @return array<string, mixed>
      *
      * @throws InvalidArgumentException
      */
@@ -124,7 +143,7 @@ class Contacts
 
         if ($fileSize > $maxSize) {
             throw new InvalidArgumentException(
-                'CSV file exceeds the 5MB limit: '.round($fileSize / 1024 / 1024, 2).'MB'
+                "CSV file exceeds the 5MB limit: " . round($fileSize / 1024 / 1024, 2) . "MB"
             );
         }
 
@@ -134,10 +153,20 @@ class Contacts
     }
 
     /**
-     * Subscribe contacts in bulk (up to 1,000).
+     * Poll the status of a CSV import job.
      *
-     * @param  array<string>  $ids  Contact IDs to subscribe.
-     * @return array<string, mixed> Contains the jobId for status polling.
+     * @return array<string, mixed>
+     */
+    public function importStatus(string $jobId): array
+    {
+        return $this->client->get("/contacts/import/{$jobId}");
+    }
+
+    /**
+     * Subscribe up to 1,000 contacts by ID. Queued — returns a jobId.
+     *
+     * @param  array<string>  $ids
+     * @return array<string, mixed>
      */
     public function bulkSubscribe(array $ids): array
     {
@@ -147,10 +176,10 @@ class Contacts
     }
 
     /**
-     * Unsubscribe contacts in bulk (up to 1,000).
+     * Unsubscribe up to 1,000 contacts by ID. Queued — returns a jobId.
      *
-     * @param  array<string>  $ids  Contact IDs to unsubscribe.
-     * @return array<string, mixed> Contains the jobId for status polling.
+     * @param  array<string>  $ids
+     * @return array<string, mixed>
      */
     public function bulkUnsubscribe(array $ids): array
     {
@@ -160,10 +189,10 @@ class Contacts
     }
 
     /**
-     * Delete contacts in bulk (up to 1,000).
+     * Delete up to 1,000 contacts by ID. Queued — returns a jobId.
      *
-     * @param  array<string>  $ids  Contact IDs to delete.
-     * @return array<string, mixed> Contains the jobId for status polling.
+     * @param  array<string>  $ids
+     * @return array<string, mixed>
      */
     public function bulkDelete(array $ids): array
     {
@@ -173,10 +202,9 @@ class Contacts
     }
 
     /**
-     * Check the status of a bulk operation.
+     * Poll the status of a bulk operation job.
      *
-     * @param  string  $jobId  The job ID returned from a bulk operation.
-     * @return array<string, mixed> Contains the job status and results.
+     * @return array<string, mixed>
      */
     public function bulkStatus(string $jobId): array
     {

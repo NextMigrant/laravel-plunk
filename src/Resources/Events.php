@@ -18,15 +18,17 @@ class Events
      *
      * @param  string  $email  The contact's email address.
      * @param  string  $event  The event name (e.g., "signed_up").
-     * @param  array<string, mixed>  $data  Optional custom data to associate with the contact.
+     * @param  array<string, mixed>  $data  Optional metadata to associate with the contact.
+     * @param  bool|null  $subscribed  Subscription state for auto-created contacts (defaults to true).
      * @return array<string, mixed>
      */
-    public function track(string $email, string $event, array $data = []): array
+    public function track(string $email, string $event, array $data = [], ?bool $subscribed = null): array
     {
         $payload = array_filter([
             'email' => $email,
             'event' => $event,
             'data' => $data ?: null,
+            'subscribed' => $subscribed,
         ], fn ($value) => ! is_null($value));
 
         return $this->client->post('/v1/track', $payload);
