@@ -40,7 +40,7 @@ composer require nextmigrant/laravel-plunk
 Publish the config file:
 
 ```bash
-php artisan vendor:publish --tag="laravel-plunk-config"
+php artisan vendor:publish --tag="plunk-config"
 ```
 
 Add your configuration to `.env`:

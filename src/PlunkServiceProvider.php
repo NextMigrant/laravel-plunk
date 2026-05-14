@@ -16,7 +16,7 @@ class PlunkServiceProvider extends PackageServiceProvider
          */
         $package
             ->name('laravel-plunk')
-            ->hasConfigFile();
+            ->hasConfigFile('plunk');
     }
 
     public function packageRegistered(): void

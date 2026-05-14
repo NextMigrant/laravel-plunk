@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\ServiceProvider;
 use NextMigrant\Plunk\Data\EmailVerification;
 use NextMigrant\Plunk\Exceptions\AuthenticationException;
 use NextMigrant\Plunk\Plunk;
@@ -68,6 +69,17 @@ it('merges the package config', function () {
     expect(config('plunk.secret_key'))->toBe('sk_test_secret')
         ->and(config('plunk.base_api_url'))->toBe('https://next-api.useplunk.com')
         ->and(config('plunk.timeout'))->toBe(30);
+});
+
+it('registers the publishable config file', function () {
+    $groups = ServiceProvider::publishableGroups();
+
+    expect($groups)->toContain('plunk-config');
+
+    $paths = ServiceProvider::pathsToPublish(null, 'plunk-config');
+
+    expect($paths)->not->toBeEmpty();
+    expect(array_values($paths)[0])->toEndWith('config/plunk.php');
 });
 
 it('throws when secret key is missing', function () {
