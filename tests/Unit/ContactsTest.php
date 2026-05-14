@@ -186,7 +186,7 @@ it('throws when importing a non-existent file', function () {
 })->throws(InvalidArgumentException::class);
 
 it('throws when importing a file exceeding 5MB', function () {
-    $tmpPath = __DIR__ . '/../../large_test.csv';
+    $tmpPath = __DIR__.'/../../large_test.csv';
     file_put_contents($tmpPath, str_repeat('a', 5 * 1024 * 1024 + 1));
 
     try {

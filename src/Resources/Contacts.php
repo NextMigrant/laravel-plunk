@@ -18,7 +18,7 @@ class Contacts
      * @param  string|null  $search  Filter by email substring.
      * @param  int|null  $limit  Items per page (default 20, max 100).
      * @param  string|null  $cursor  Cursor from previous response.
-     * @return array<string, mixed>  Returns { data: Contact[], cursor, hasMore, total }.
+     * @return array<string, mixed> Returns { data: Contact[], cursor, hasMore, total }.
      */
     public function list(?string $search = null, ?int $limit = null, ?string $cursor = null): array
     {
@@ -43,8 +43,6 @@ class Contacts
 
     /**
      * Get a single contact by ID.
-     *
-     * @return Contact
      */
     public function get(string $id): Contact
     {
@@ -143,7 +141,7 @@ class Contacts
 
         if ($fileSize > $maxSize) {
             throw new InvalidArgumentException(
-                "CSV file exceeds the 5MB limit: " . round($fileSize / 1024 / 1024, 2) . "MB"
+                'CSV file exceeds the 5MB limit: '.round($fileSize / 1024 / 1024, 2).'MB'
             );
         }
 

@@ -18,7 +18,7 @@ class Templates
      * @param  string|null  $type  Filter by type: "TRANSACTIONAL" or "MARKETING".
      * @param  int|null  $limit  Items per page.
      * @param  string|null  $cursor  Pagination cursor.
-     * @return array<string, mixed>  Returns { templates: Template[], total, page, pageSize, totalPages }.
+     * @return array<string, mixed> Returns { templates: Template[], total, page, pageSize, totalPages }.
      */
     public function list(?string $search = null, ?string $type = null, ?int $limit = null, ?string $cursor = null): array
     {
@@ -43,8 +43,6 @@ class Templates
 
     /**
      * Get a single template by ID.
-     *
-     * @return Template
      */
     public function get(string $id): Template
     {
@@ -60,7 +58,6 @@ class Templates
      * @param  string  $subject  Email subject line.
      * @param  string  $body  HTML body.
      * @param  string  $type  "TRANSACTIONAL" or "MARKETING".
-     * @return Template
      */
     public function create(string $name, string $subject, string $body, string $type = 'TRANSACTIONAL'): Template
     {
@@ -82,7 +79,6 @@ class Templates
      * @param  string|null  $subject  Email subject line.
      * @param  string|null  $body  HTML body.
      * @param  string|null  $type  "TRANSACTIONAL" or "MARKETING".
-     * @return Template
      */
     public function update(string $id, ?string $name = null, ?string $subject = null, ?string $body = null, ?string $type = null): Template
     {
@@ -110,8 +106,6 @@ class Templates
 
     /**
      * Duplicate a template. Returns the new template.
-     *
-     * @return Template
      */
     public function duplicate(string $id): Template
     {
